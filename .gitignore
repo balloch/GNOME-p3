@@ -1,5 +1,5 @@
 #Files to be ignored
-
+.egg-info
 .idea
 .DS_Store
 /monopoly_simulator/__pycache__
