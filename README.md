@@ -7,6 +7,11 @@ The following steps have to be followed before running the simulator:
 * Clone the GNOME-p3 repository - __```$ git clone git@github.com:mayankkejriwal/GNOME-p3.git```__
 * All the python packages required to run a game instance can be installed using __```$ pip install -r requirements.txt```__   *(--user may be required for some systems)*.
 
+### Using the code:
+
+Either you can use the code in place as a simple simulator, or as a packaged library, installing it in your interpreter using the following code in the top directory:
+`pip install -e .`
+
 ### Repository branches:
 
 **_"master"_: The "master" branch of this repository works ONLY if Pycharm is installed. Pycharm is highly recommended to run the monopoly simulator and the instructions given below are to be followed only if running the simulator using Pycharm IDE.** 
