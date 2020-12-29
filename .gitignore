@@ -1,7 +1,7 @@
 #Files to be ignored
-.egg-info
-.idea
-.DS_Store
+*.egg-info
+*.idea
+*.DS_Store
 /monopoly_simulator/__pycache__
 /monopoly_simulator/background_agent_v1.py
 /monopoly_simulator/background_agent_v1_deprecated.py
