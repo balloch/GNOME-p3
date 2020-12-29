@@ -294,6 +294,7 @@ def inject_novelty(current_gameboard, novelty_schema=None):
 
     '''
     #Level 1 Novelty
+
     numberDieNovelty = novelty_generator.NumberClassNovelty()
     numberDieNovelty.die_novelty(current_gameboard, 4, die_state_vector=[[1,2,3,4,5],[1,2,3,4],[5,6,7],[2,3,4]])
     
@@ -312,6 +313,7 @@ def inject_novelty(current_gameboard, novelty_schema=None):
 
     '''
     #Level 2 Novelty
+
     #The below combination reassigns property groups and individual properties to different colors.
     #On playing the game it is verified that the newly added property to the color group is taken into account for monopolizing a color group,
     # i,e the orchid color group now has Baltic Avenue besides St. Charles Place, States Avenue and Virginia Avenue. The player acquires a monopoly
@@ -320,18 +322,22 @@ def inject_novelty(current_gameboard, novelty_schema=None):
     inanimateNovelty = novelty_generator.InanimateAttributeNovelty()
     inanimateNovelty.map_property_set_to_color(current_gameboard, [current_gameboard['location_objects']['Park Place'], current_gameboard['location_objects']['Boardwalk']], 'Brown')
     inanimateNovelty.map_property_to_color(current_gameboard, current_gameboard['location_objects']['Baltic Avenue'], 'Orchid')
+
     #setting new rents for Indiana Avenue
     inanimateNovelty.rent_novelty(current_gameboard['location_objects']['Indiana Avenue'], {'rent': 50, 'rent_1_house': 150})
     '''
 
     '''
     #Level 3 Novelty
+
     granularityNovelty = novelty_generator.GranularityRepresentationNovelty()
     granularityNovelty.granularity_novelty(current_gameboard, current_gameboard['location_objects']['Baltic Avenue'], 6)
     granularityNovelty.granularity_novelty(current_gameboard, current_gameboard['location_objects']['States Avenue'], 20)
     granularityNovelty.granularity_novelty(current_gameboard, current_gameboard['location_objects']['Tennessee Avenue'], 27)
+
     spatialNovelty = novelty_generator.SpatialRepresentationNovelty()
     spatialNovelty.color_reordering(current_gameboard, ['Boardwalk', 'Park Place'], 'Blue')
+
     granularityNovelty.granularity_novelty(current_gameboard, current_gameboard['location_objects']['Park Place'], 52)
     '''
 
@@ -340,6 +346,7 @@ def play_game():
     """
     Use this function if you want to test a single game instance and control lots of things. For experiments, we will directly
     call some of the functions in gameplay from test_harness.py.
+
     This is where everything begins. Assign decision agents to your players, set up the board and start simulating! You can
     control any number of players you like, and assign the rest to the simple agent. We plan to release a more sophisticated
     but still relatively simple agent soon.
@@ -419,7 +426,7 @@ def play_game_in_tournament(game_seed, novelty_info=False, inject_novelty_functi
 
     game_elements = set_up_board('../monopoly_game_schema_v1-2.json',
                                  player_decision_agents)
-
+    
     #Comment out the above line and uncomment the piece of code to read the gameboard state from an existing json file so that
     #the game starts from a particular game state instead of initializing the gameboard with default start values.
     #Note that the novelties introduced in that particular game which was saved to file will be loaded into this game board as well.
@@ -494,4 +501,6 @@ def play_game_in_tournament(game_seed, novelty_info=False, inject_novelty_functi
                     logger.debug("GAME OVER")
                     return winner
 
-# play_game()
+
+if __name__ == '__main__':
+    print('Winner=', play_game())
