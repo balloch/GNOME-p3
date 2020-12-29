@@ -502,4 +502,5 @@ def play_game_in_tournament(game_seed, novelty_info=False, inject_novelty_functi
                     return winner
 
 
-# play_game()
+if __name__ == '__main__':
+    print('Winner=', play_game())
