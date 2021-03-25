@@ -55,78 +55,27 @@ def make_pre_roll_move(player, current_gameboard, allowable_moves, code):
     conclude_actions. This count resets to 0 when the phase_game changes.
     This ensures that the game doesnot go on for too long trying to execute unsuccessful actions.
     '''
-    for p in current_gameboard['players']:
-        if 'phase_game' not in p.agent._agent_memory:
-            p.agent._agent_memory['phase_game'] = 0
-            p.agent._agent_memory['count_unsuccessful_tries'] = 0
-
-    if player.agent._agent_memory['phase_game'] != 0:
-        player.agent._agent_memory['phase_game'] = 0
-        for p in current_gameboard['players']:
-            if p.status != 'lost':
-                p.agent._agent_memory['count_unsuccessful_tries'] = 0
-
-    if code == flag_config_dict['failure_code']:
-        player.agent._agent_memory['count_unsuccessful_tries'] += 1
-        logger.debug(player.player_name + ' has executed an unsuccessful preroll action, incrementing unsuccessful_tries ' +
-                                          'counter to ' + str(player.agent._agent_memory['count_unsuccessful_tries']))
-
+    _first_agent_prep(player, current_gameboard, allowable_moves, phase=0)
+    _failcode_handler(player, code)
     if player.agent._agent_memory['count_unsuccessful_tries'] >= UNSUCCESSFUL_LIMIT:
-        logger.debug(player.player_name + ' has reached preroll unsuccessful action limits.')
-        if "skip_turn" in allowable_moves:
-            logger.debug(player.player_name+ ': I am skipping turn since I have crossed unsuccessful limits.')
-            player.agent._agent_memory['previous_action'] = "skip_turn"
-            return ("skip_turn", dict())
-        elif "concluded_actions" in allowable_moves:
-            # player.agent._agent_memory['previous_action'] = action_choices.concluded_actions
-            logger.debug(player.player_name+ ': I am concluding actions since I have crossed unsuccessful limits.')
-            return ("concluded_actions", dict())
-        else:
-            logger.error("Exception")
-            raise Exception
+        logger.debug(player.player_name + ' has reached out of turn unsuccessful action limits.')
+        return _wrap_up(player, allowable_moves, message=' since I have crossed unsuccessful limits.')
 
-    if player.current_cash >= current_gameboard['go_increment']: # if we don't have enough money, best to stay put.
-        param = dict()
-        param['player'] = player.player_name
-        param['current_gameboard'] = "current_gameboard"
+    action_param = dict()
+    action_param['player'] = player.player_name
+    action_param['current_gameboard'] = "current_gameboard"
+
+    if player.current_cash >= current_gameboard['go_increment']:  # if we don't have enough money, best to stay put.
         if "use_get_out_of_jail_card" in allowable_moves:
-            logger.debug(player.player_name+': I am using get out of jail card.')
+            logger.debug(player.player_name + ': I am using get out of jail card.')
             player.agent._agent_memory['previous_action'] = "use_get_out_of_jail_card"
-            return ("use_get_out_of_jail_card", param)
+            return ("use_get_out_of_jail_card", action_param)
         elif "pay_jail_fine" in allowable_moves:
-            logger.debug(player.player_name+': I am going to pay jail fine.')
+            logger.debug(player.player_name + ': I am going to pay jail fine.')
             player.agent._agent_memory['previous_action'] = "pay_jail_fine"
-            return ("pay_jail_fine", param)
+            return ("pay_jail_fine", action_param)
 
-    # if we ran the gamut, and did not return, then it's time to skip turn or conclude actions
-    if "skip_turn" in allowable_moves:
-        # testing hypothetical simulator (will comment when done testing). Note that this was written for the Python 2
-        # version (the GNOME repo). Make sure to appropriately modify by instantiating agent instead of sending in the
-        # decision agent methods as being done below.
-        # player_decision_agents = dict()
-        # import simple_decision_agent_1
-        # player_decision_agents['player_1'] = simple_decision_agent_1.decision_agent_methods # the reason I am doing this for all agents is to avoid infinite loops.
-        # player_decision_agents['player_2'] = simple_decision_agent_1.decision_agent_methods
-        # player_decision_agents['player_3'] = simple_decision_agent_1.decision_agent_methods
-        # player_decision_agents['player_4'] = simple_decision_agent_1.decision_agent_methods
-        # alternate_univ = hypothetical_simulator.initialize_hypothetical_universe(current_gameboard, player_decision_agents)
-        # logger.debug(player.player_name,' has spawned alternate universe to try out things.')
-        # hypothetical_winner = hypothetical_simulator.simulate_hypothetical_game(hypothetical_gameboard=alternate_univ,
-        #                         die_roll_substitute=hypothetical_simulator.die_roll_substitute,num_total_die_rolls=15) # we will only run for fifteen die rolls.
-        # if hypothetical_winner is None:
-        #     logger.debug(diagnostics.logger.debug_player_cash_balances(alternate_univ))
-        # else:
-        #     logger.debug(hypothetical_winner.player_name)
-        logger.debug(player.player_name+ ': I am skipping turn')
-        player.agent._agent_memory['previous_action'] = "skip_turn"
-        return ("skip_turn", dict())
-    elif "concluded_actions" in allowable_moves:
-        # player.agent._agent_memory['previous_action'] = action_choices.concluded_actions
-        logger.debug(player.player_name+ ': I am concluding actions')
-        return ("concluded_actions", dict())
-    else:
-        logger.error("Exception")
-        raise Exception
+    return _wrap_up(player, allowable_moves)
 
 
 def make_out_of_turn_move(player, current_gameboard, allowable_moves, code):
@@ -182,61 +131,37 @@ def make_out_of_turn_move(player, current_gameboard, allowable_moves, code):
     This ensures that the game doesnot go on for too long trying to execute unsuccessful actions.
     '''
 
-    for p in current_gameboard['players']:
-        if 'phase_game' not in p.agent._agent_memory:
-            p.agent._agent_memory['phase_game'] = 1
-            p.agent._agent_memory['count_unsuccessful_tries'] = 0
-
-    if player.agent._agent_memory['phase_game'] != 1:
-        player.agent._agent_memory['phase_game'] = 1
-        player.agent._agent_memory['count_unsuccessful_tries'] = 0
-
-    if isinstance(code, list):
-        code_flag = 0
-        for c in code:
-            if c == flag_config_dict['failure_code']:
-                code_flag = 1
-                break
-        if code_flag:
-            player.agent._agent_memory['count_unsuccessful_tries'] += 1
-            logger.debug(player.player_name + ' has executed an unsuccessful out of turn action, incrementing unsuccessful_tries ' +
-                                          'counter to ' + str(player.agent._agent_memory['count_unsuccessful_tries']))
-    elif code == flag_config_dict['failure_code']:
-        player.agent._agent_memory['count_unsuccessful_tries'] += 1
-        logger.debug(player.player_name + ' has executed an unsuccessful out of turn action, incrementing unsuccessful_tries ' +
-                                          'counter to ' + str(player.agent._agent_memory['count_unsuccessful_tries']))
-
+    _first_agent_prep(player,current_gameboard, allowable_moves, phase=1)
+    _failcode_handler(player, code)
     if player.agent._agent_memory['count_unsuccessful_tries'] >= UNSUCCESSFUL_LIMIT:
         logger.debug(player.player_name + ' has reached out of turn unsuccessful action limits.')
-        if "skip_turn" in allowable_moves:
-            logger.debug(player.player_name+ ': I am skipping turn since I have crossed unsuccessful limits.')
-            player.agent._agent_memory['previous_action'] = "skip_turn"
-            return ("skip_turn", dict())
-        elif "concluded_actions" in allowable_moves:
-            # player.agent._agent_memory['previous_action'] = action_choices.concluded_actions
-            logger.debug(player.player_name+ ': I am concluding actions since I have crossed unsuccessful limits.')
-            return ("concluded_actions", dict())
-        else:
-            logger.error("Exception")
-            raise Exception
+        return _wrap_up(player, allowable_moves)
+
+    action_param = dict()
+    action_param['player'] = player.player_name
+    action_param['current_gameboard'] = "current_gameboard"
 
     if "accept_trade_offer" in allowable_moves:
-        param = dict()
-        param['player'] = player.player_name
-        param['current_gameboard'] = "current_gameboard"
-        logger.debug(player.player_name+ ': Should I accept the trade offer by '+player.outstanding_trade_offer['from_player'].player_name+'?')
-        logger.debug('('+player.player_name+' currently has cash balance of '+str(player.current_cash)+')')
+        logger.debug(player.player_name + ': Should I accept the trade offer by ' + player.outstanding_trade_offer[
+            'from_player'].player_name + '?')
+        logger.debug('(' + player.player_name + ' currently has cash balance of ' + str(player.current_cash) + ')')
 
-        if (player.outstanding_trade_offer['cash_offered'] <= 0 and len(player.outstanding_trade_offer['property_set_offered'])==0) and \
-                (player.outstanding_trade_offer['cash_wanted'] > 0 or len(player.outstanding_trade_offer['property_set_wanted']) > 0):
+        if (player.outstanding_trade_offer['cash_offered'] <= 0 and len(
+                player.outstanding_trade_offer['property_set_offered']) == 0) and \
+                (player.outstanding_trade_offer['cash_wanted'] > 0 or len(
+                    player.outstanding_trade_offer['property_set_wanted']) > 0):
             logger.debug('Asking for free money or property without money or property in return.')
-            logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
-            pass   #asking for free money or property without anything in return(ie no money and no property offered), -->reject the trade offer
+            logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                'from_player'].player_name)
+            pass  # asking for free money or property without anything in return(ie no money and no property offered), -->reject the trade offer
 
-        elif player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer['cash_offered'] > player.current_cash:
-            logger.debug('Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
-            logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
-            pass  #cash wanted is more than that offered and the net difference exceeds the cash that the player has --> then reject the tade offer
+        elif player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer[
+            'cash_offered'] > player.current_cash:
+            logger.debug(
+                'Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
+            logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                'from_player'].player_name)
+            pass  # cash wanted is more than that offered and the net difference exceeds the cash that the player has --> then reject the tade offer
 
         else:
             reject_flag = 0
@@ -244,9 +169,10 @@ def make_out_of_turn_move(player, current_gameboard, allowable_moves, code):
             wanted_properties_net_worth = 0
             for prop in player.outstanding_trade_offer['property_set_wanted']:
                 if prop.is_mortgaged:
-                    reject_flag = 1  #cannot trade mortgaged properties, reject trade offer
+                    reject_flag = 1  # cannot trade mortgaged properties, reject trade offer
                     logger.debug('Trade offer invovlves mortgaged properties.')
-                    logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
+                    logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                        'from_player'].player_name)
                     break
                 else:
                     wanted_properties_net_worth += prop.price
@@ -254,75 +180,97 @@ def make_out_of_turn_move(player, current_gameboard, allowable_moves, code):
             if reject_flag == 0:
                 for prop in player.outstanding_trade_offer['property_set_offered']:
                     if prop.is_mortgaged:
-                        reject_flag = 1  #from_player cannot offer mortgaged properties, reject trade offer
+                        reject_flag = 1  # from_player cannot offer mortgaged properties, reject trade offer
                         logger.debug('Trade offer invovlves mortgaged properties.')
-                        logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
+                        logger.debug(
+                            player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                                'from_player'].player_name)
                         break
                     else:
                         offered_properties_net_worth += prop.price
             if reject_flag == 0:
-                #GOAL -- increase monopolies
-                #calculate the net worth of offer vs net worth of request --> makes sense to accept trade only if the offer is greater than request
-                #net worth of offer = cash + total price of all houses
-                #positive net_amount_requested implies that the requested net amount is greater than offered net amount
+                # GOAL -- increase monopolies
+                # calculate the net worth of offer vs net worth of request --> makes sense to accept trade only if the offer is greater than request
+                # net worth of offer = cash + total price of all houses
+                # positive net_amount_requested implies that the requested net amount is greater than offered net amount
                 net_offer_worth = (offered_properties_net_worth + player.outstanding_trade_offer['cash_offered']) - \
                                   (wanted_properties_net_worth + player.outstanding_trade_offer['cash_wanted'])
-                net_amount_requested = -1*net_offer_worth
+                net_amount_requested = -1 * net_offer_worth
 
                 count_create_new_monopoly = 0
-                count_lose_existing_monopoly = 0 ##ideally player doesnot have to worry about losing monopolies since the player who makes the offer
-                #only requests for lone properties
+                count_lose_existing_monopoly = 0  ##ideally player doesnot have to worry about losing monopolies since the player who makes the offer
+                # only requests for lone properties
                 for prop in player.outstanding_trade_offer['property_set_offered']:
-                    if agent_helper_functions.will_property_complete_set(player,prop,current_gameboard):
+                    if agent_helper_functions.will_property_complete_set(player, prop, current_gameboard):
                         count_create_new_monopoly += 1
                 for prop in player.outstanding_trade_offer['property_set_wanted']:
                     if prop.color in player.full_color_sets_possessed:
                         count_lose_existing_monopoly += 1
 
-                #if you end up losing more monopolies than gaining monopolies (although this condition should never come up) then reject trade offer
+                # if you end up losing more monopolies than gaining monopolies (although this condition should never come up) then reject trade offer
                 if count_lose_existing_monopoly - count_create_new_monopoly > 0:
                     logger.debug('Player loses more monopolies than he gains.')
-                    logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
+                    logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                        'from_player'].player_name)
                     reject_flag = 1
 
-                #if you end up losing the same number of monopolies as you gain, then accept the offer based on the following multiple conditions.
-                #Basically you get no new monopolies since ideally you dont lose monopolies (only properties that dont belong to your monopolized color
+                # if you end up losing the same number of monopolies as you gain, then accept the offer based on the following multiple conditions.
+                # Basically you get no new monopolies since ideally you dont lose monopolies (only properties that dont belong to your monopolized color
                 # groups are only requested from you in the trade.)
                 elif count_lose_existing_monopoly - count_create_new_monopoly == 0:
-                    if (player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer['cash_offered']) >= player.current_cash:
-                        logger.debug('Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
-                        logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
+                    if (player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer[
+                        'cash_offered']) >= player.current_cash:
+                        logger.debug(
+                            'Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
+                        logger.debug(
+                            player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                                'from_player'].player_name)
                         reject_flag = 1  ##just double checking although this condition was verified before getting here.
-                    elif player.current_cash - (player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer['cash_offered']) < current_gameboard['go_increment']/2:
-                        logger.debug('Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
-                        logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
+                    elif player.current_cash - (
+                            player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer[
+                        'cash_offered']) < current_gameboard['go_increment'] / 2:
+                        logger.debug(
+                            'Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
+                        logger.debug(
+                            player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                                'from_player'].player_name)
                         reject_flag = 1  ##too risky if players cash after transaction drops below half of go_increment value --> hence reject trade offer
-                    elif (player.current_cash - (player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer['cash_offered']) < current_gameboard['go_increment']) \
+                    elif (player.current_cash - (
+                            player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer[
+                        'cash_offered']) < current_gameboard['go_increment']) \
                             and net_offer_worth <= 0:
                         logger.debug('No gain from accepting trade offer.')
-                        logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
-                        reject_flag =1  ##if player has cash > go_increement/2 and < go_increement but net worth of total transaction is negative --> reject trade offer
+                        logger.debug(
+                            player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                                'from_player'].player_name)
+                        reject_flag = 1  ##if player has cash > go_increement/2 and < go_increement but net worth of total transaction is negative --> reject trade offer
                     else:
-                        reject_flag =0  ##accept only if you end up getting a higher net worth by accepting the trade although you get no new monopolies
+                        reject_flag = 0  ##accept only if you end up getting a higher net worth by accepting the trade although you get no new monopolies
 
 
-                #else you get to monopolize more locations than you had before --> then ACCEPT THE TRADE OFFER
+                # else you get to monopolize more locations than you had before --> then ACCEPT THE TRADE OFFER
                 elif count_create_new_monopoly - count_lose_existing_monopoly > 0:
-                    if (player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer['cash_offered']) >= player.current_cash:
-                        logger.debug('Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
-                        logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
+                    if (player.outstanding_trade_offer['cash_wanted'] - player.outstanding_trade_offer[
+                        'cash_offered']) >= player.current_cash:
+                        logger.debug(
+                            'Cash wanted from me in the trade offer is more than the cash in hand with me or I am near bankruptcy situation and need to play safe.')
+                        logger.debug(
+                            player.player_name + " rejected trade offer from " + player.outstanding_trade_offer[
+                                'from_player'].player_name)
                         reject_flag = 1  ##just double checking although this condition was verified before getting here.
                     else:
                         reject_flag = 0
 
             if reject_flag == 0:
-                logger.debug(player.player_name + " accepted trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
-                logger.debug(player.player_name + " recieved amount = " + str(player.outstanding_trade_offer['cash_offered']) + " and offered amount = " +
+                logger.debug(player.player_name + " accepted trade offer from " + player.outstanding_trade_offer[
+                    'from_player'].player_name)
+                logger.debug(player.player_name + " recieved amount = " + str(
+                    player.outstanding_trade_offer['cash_offered']) + " and offered amount = " +
                              str(player.outstanding_trade_offer['cash_wanted']) + " during trade")
                 player.agent._agent_memory['previous_action'] = "accept_trade_offer"
-                return ("accept_trade_offer", param)
+                return ("accept_trade_offer", action_param)
             elif reject_flag == 1:
-                #logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
+                # logger.debug(player.player_name + " rejected trade offer from " + player.outstanding_trade_offer['from_player'].player_name)
                 pass
 
     if "accept_sell_property_offer" in allowable_moves:
@@ -330,143 +278,161 @@ def make_out_of_turn_move(player, current_gameboard, allowable_moves, code):
         ## accept_trade_offer takes care of accept_sell_offer.
         ## This case is included to accomodate a make_sell_property offer raised by an external agent.
         ## Our agent will never make a sell property offer, only makes trade offers which raises an accpet_trade_offer action.
-        param = dict()
-        param['player'] = player.player_name
-        param['current_gameboard'] = "current_gameboard"
         # we accept an offer under one of two conditions:
-        logger.debug(player.player_name+ ': Should I accept the offer by '+player.outstanding_property_offer['from_player'].player_name+' to buy '+\
-            player.outstanding_property_offer['asset'].name+' for '+str(player.outstanding_property_offer['price'])+'?')
-        logger.debug('('+player.player_name+' currently has cash balance of '+str(player.current_cash)+')')
-        if player.outstanding_property_offer['asset'].is_mortgaged or player.outstanding_property_offer['price']>player.current_cash:
-            pass # ignore the offer if the property is mortgaged or will result in insolvency. This pass doesn't require 'filling' in.
-        elif player.current_cash-player.outstanding_property_offer['price'] >= current_gameboard['go_increment'] and \
-            player.outstanding_property_offer['price']<=player.outstanding_property_offer['asset'].price:
+        logger.debug(player.player_name + ': Should I accept the offer by ' + player.outstanding_property_offer[
+            'from_player'].player_name + ' to buy ' + \
+                     player.outstanding_property_offer['asset'].name + ' for ' + str(
+            player.outstanding_property_offer['price']) + '?')
+        logger.debug('(' + player.player_name + ' currently has cash balance of ' + str(player.current_cash) + ')')
+        if player.outstanding_property_offer['asset'].is_mortgaged or player.outstanding_property_offer[
+            'price'] > player.current_cash:
+            pass  # ignore the offer if the property is mortgaged or will result in insolvency. This pass doesn't require 'filling' in.
+        elif player.current_cash - player.outstanding_property_offer['price'] >= current_gameboard['go_increment'] and \
+                player.outstanding_property_offer['price'] <= player.outstanding_property_offer['asset'].price:
             # 1. we can afford it, and it's at or below market rate so let's buy it
-            logger.debug(player.player_name+ ': I am accepting the offer to buy '+player.outstanding_property_offer['asset'].name+' since I can afford' \
-                                                    'it and it is being offered at or below market rate.')
+            logger.debug(player.player_name + ': I am accepting the offer to buy ' + player.outstanding_property_offer[
+                'asset'].name + ' since I can afford' \
+                                'it and it is being offered at or below market rate.')
             player.agent._agent_memory['previous_action'] = "accept_sell_property_offer"
-            return ("accept_sell_property_offer", param)
-        elif agent_helper_functions.will_property_complete_set(player, player.outstanding_property_offer['asset'],current_gameboard):
+            return ("accept_sell_property_offer", action_param)
+        elif agent_helper_functions.will_property_complete_set(player, player.outstanding_property_offer['asset'],
+                                                               current_gameboard):
             # 2. less affordable, but we stand to gain by monopoly
-            if player.current_cash - player.outstanding_property_offer['price'] >= current_gameboard['go_increment']/2: # risky, but worth it
-                logger.debug(player.player_name+ ': I am accepting the offer to buy '+ player.outstanding_property_offer[
-                    'asset'].name+ ' since I can afford ' \
-                                   'it (albeit barely so) and it will let me complete my color set.')
+            if player.current_cash - player.outstanding_property_offer['price'] >= current_gameboard[
+                'go_increment'] / 2:  # risky, but worth it
+                logger.debug(
+                    player.player_name + ': I am accepting the offer to buy ' + player.outstanding_property_offer[
+                        'asset'].name + ' since I can afford ' \
+                                        'it (albeit barely so) and it will let me complete my color set.')
                 player.agent._agent_memory['previous_action'] = "accept_sell_property_offer"
-                return ("accept_sell_property_offer", param)
+                return ("accept_sell_property_offer", action_param)
 
-    if player.status != 'current_move': # these actions are considered only if it's NOT our turn to roll the dice.
-        if "improve_property" in allowable_moves: # beef up full color sets to maximize rent potential.
-            param = agent_helper_functions.identify_improvement_opportunity(player, current_gameboard)
-            if param:
-                if player.agent._agent_memory['previous_action'] == "improve_property" and code == flag_config_dict['failure_code']:
-                    logger.debug(player.player_name+ ': I want to improve property '+param['asset'].name+ ' but I cannot, due to reasons I do not understand. Aborting improvement attempt...')
+
+    if player.status != 'current_move':  # these actions are considered only if it's NOT our turn to roll the dice.
+        if "improve_property" in allowable_moves:  # beef up full color sets to maximize rent potential.
+            action_param_temp = agent_helper_functions.identify_improvement_opportunity(player, current_gameboard)
+            if action_param_temp:
+                action_param = action_param_temp
+                if player.agent._agent_memory['previous_action'] == "improve_property" and code == flag_config_dict[
+                    'failure_code']:
+                    logger.debug(player.player_name + ': I want to improve property ' + action_param[
+                        'asset'].name + ' but I cannot, due to reasons I do not understand. Aborting improvement attempt...')
+                    return ("concluded_actions", dict())
                 else:
-                    logger.debug(player.player_name+ ': I am going to improve property '+param['asset'].name)
+                    logger.debug(player.player_name + ': I am going to improve property ' + action_param['asset'].name)
                     player.agent._agent_memory['previous_action'] = "improve_property"
-                    param['player'] = param['player'].player_name
-                    param['asset'] = param['asset'].name
-                    param['current_gameboard'] = "current_gameboard"
-                    return ("improve_property", param)
+                    action_param['player'] = action_param['player'].player_name
+                    action_param['asset'] = action_param['asset'].name
+                    action_param['current_gameboard'] = "current_gameboard"
+                    return ("improve_property", action_param)
+            # else:
+            #     action_param = dict()
 
         player_mortgaged_assets_list = list()
         if player.mortgaged_assets:
             player_mortgaged_assets_list = _set_to_sorted_list_mortgaged_assets(player.mortgaged_assets)
         for m in player_mortgaged_assets_list:
-            if player.current_cash-(m.mortgage*(1+current_gameboard['bank'].mortgage_percentage)) >= current_gameboard['go_increment'] and "free_mortgage" in allowable_moves:
+            if player.current_cash - (m.mortgage * (1 + current_gameboard['bank'].mortgage_percentage)) >= \
+                    current_gameboard['go_increment'] and "free_mortgage" in allowable_moves:
                 # free mortgages till we can afford it. the second condition should not be necessary but just in case.
-                param = dict()
-                param['player'] = player.player_name
-                param['asset'] = m.name
-                param['current_gameboard'] = "current_gameboard"
-                logger.debug(player.player_name+ ': I am going to free mortgage on '+ m.name)
+                try:
+                    action_param['asset'] = m.name
+                except:
+                    import pdb
+                    pdb.set_trace()
+                logger.debug(player.player_name + ': I am going to free mortgage on ' + m.name)
                 player.agent._agent_memory['previous_action'] = "free_mortgage"
-                return ("free_mortgage", param)
+                return ("free_mortgage", action_param)
 
     else:
-        #purpose_flags are sent while curating a trade offer to imply why the trade offer was made:
-         ## 1 --> low on cash, urgently in need of cash
-         ## 2 --> gain monopoly
+        # purpose_flags are sent while curating a trade offer to imply why the trade offer was made:
+        ## 1 --> low on cash, urgently in need of cash
+        ## 2 --> gain monopoly
         if player.current_cash < current_gameboard['go_increment'] and "make_trade_offer" in allowable_moves:
             # in this case, the trade offer is a duplication of make_sell_property_offer since the player is in urgent need of cash and
-            #cannot strategize a trade
-            potential_offer_list = agent_helper_functions.identify_property_trade_offer_to_player(player, current_gameboard)
-            potential_request_list = agent_helper_functions.identify_property_trade_wanted_from_player(player, current_gameboard)
-            param_list = agent_helper_functions.curate_trade_offer_multiple_players(player, potential_offer_list, potential_request_list, current_gameboard, purpose_flag=1)
-            #logger.debug(param)
+            # cannot strategize a trade
+            potential_offer_list = agent_helper_functions.identify_property_trade_offer_to_player(player,
+                                                                                                  current_gameboard)
+            potential_request_list = agent_helper_functions.identify_property_trade_wanted_from_player(player,
+                                                                                                       current_gameboard)
+            action_param_list = agent_helper_functions.curate_trade_offer_multiple_players(player, potential_offer_list,
+                                                                                    potential_request_list,
+                                                                                    current_gameboard, purpose_flag=1)
+            # logger.debug(action_action_param)
             return_action_list = []
-            return_param_list = []
+            return_action_param_list = []
 
-            if param_list and player.agent._agent_memory['previous_action'] != "make_trade_offer": # we only make one offer per turn. Otherwise we'd
+            if action_param_list and player.agent._agent_memory[
+                'previous_action'] != "make_trade_offer":  # we only make one offer per turn. Otherwise we'd
                 # be stuck in a loop
-                if len(param_list)>1:
-                    logger.debug(player.player_name + ": I am going to make trade offers to multiple players, ie " + str(len(param_list)) + " players.")
-                for param in param_list:
-                    logger.debug(player.player_name+ ': I am making an offer to trade '+list(param['offer']['property_set_offered'])[0].name+' to '+
-                                 param['to_player'].player_name+' for '+str(param['offer']['cash_wanted'])+' dollars')
+                if len(action_param_list) > 1:
+                    logger.debug(
+                        player.player_name + ": I am going to make trade offers to multiple players, ie " + str(
+                            len(action_param_list)) + " players.")
+                for action_param in action_param_list:
+                    logger.debug(player.player_name + ': I am making an offer to trade ' +
+                                 list(action_param['offer']['property_set_offered'])[0].name + ' to ' +
+                                 action_param['to_player'].player_name + ' for ' + str(
+                        action_param['offer']['cash_wanted']) + ' dollars')
 
-                    param['from_player'] = param['from_player'].player_name
-                    param['to_player'] = param['to_player'].player_name
+                    action_param['from_player'] = action_param['from_player'].player_name
+                    action_param['to_player'] = action_param['to_player'].player_name
                     prop_set_offered = set()
-                    for item in param['offer']['property_set_offered']:
+                    for item in action_param['offer']['property_set_offered']:
                         prop_set_offered.add(item.name)
-                    param['offer']['property_set_offered'] = prop_set_offered
+                    action_param['offer']['property_set_offered'] = prop_set_offered
                     prop_set_wanted = set()
-                    for item in param['offer']['property_set_wanted']:
+                    for item in action_param['offer']['property_set_wanted']:
                         prop_set_wanted.add(item.name)
-                    param['offer']['property_set_wanted'] = prop_set_wanted
+                    action_param['offer']['property_set_wanted'] = prop_set_wanted
 
                     player.agent._agent_memory['previous_action'] = "make_trade_offer"
                     return_action_list.append("make_trade_offer")
-                    return_param_list.append(param)
-                return (return_action_list, return_param_list)
+                    return_action_param_list.append(action_param)
+                return (return_action_list, return_action_param_list)
 
         elif "make_trade_offer" in allowable_moves:
             # trade offer is being curated to maximise monopolies
-            potential_offer_list = agent_helper_functions.identify_property_trade_offer_to_player(player, current_gameboard)
-            potential_request_list = agent_helper_functions.identify_property_trade_wanted_from_player(player, current_gameboard)
-            param_list = agent_helper_functions.curate_trade_offer_multiple_players(player, potential_offer_list, potential_request_list, current_gameboard, purpose_flag=2)
-            #logger.debug(param)
+            potential_offer_list = agent_helper_functions.identify_property_trade_offer_to_player(player,
+                                                                                                  current_gameboard)
+            potential_request_list = agent_helper_functions.identify_property_trade_wanted_from_player(player,
+                                                                                                       current_gameboard)
+            action_param_list = agent_helper_functions.curate_trade_offer_multiple_players(player, potential_offer_list,
+                                                                                    potential_request_list,
+                                                                                    current_gameboard, purpose_flag=2)
+            # logger.debug(action_param)
             return_action_list = []
-            return_param_list = []
+            return_action_param_list = []
 
-            if param_list and player.agent._agent_memory['previous_action'] != "make_trade_offer":  # we only make one offer per turn. Otherwise we'd
+            if action_param_list and player.agent._agent_memory[
+                'previous_action'] != "make_trade_offer":  # we only make one offer per turn. Otherwise we'd
                 # be stuck in a loop
-                if len(param_list)>1:
-                    logger.debug(player.player_name + ": I am going to make trade offers to multiple players, ie " + str(len(param_list)) + " players.")
-                for param in param_list:
-                    logger.debug(player.player_name+ ': I am making a trade offer with '+ param['to_player'].player_name)
+                if len(action_param_list) > 1:
+                    logger.debug(
+                        player.player_name + ": I am going to make trade offers to multiple players, ie " + str(
+                            len(action_param_list)) + " players.")
+                for action_param in action_param_list:
+                    logger.debug(
+                        player.player_name + ': I am making a trade offer with ' + action_param['to_player'].player_name)
 
-                    param['from_player'] = param['from_player'].player_name
-                    param['to_player'] = param['to_player'].player_name
+                    action_param['from_player'] = action_param['from_player'].player_name
+                    action_param['to_player'] = action_param['to_player'].player_name
                     prop_set_offered = set()
-                    for item in param['offer']['property_set_offered']:
+                    for item in action_param['offer']['property_set_offered']:
                         prop_set_offered.add(item.name)
-                    param['offer']['property_set_offered'] = prop_set_offered
+                    action_param['offer']['property_set_offered'] = prop_set_offered
                     prop_set_wanted = set()
-                    for item in param['offer']['property_set_wanted']:
+                    for item in action_param['offer']['property_set_wanted']:
                         prop_set_wanted.add(item.name)
-                    param['offer']['property_set_wanted'] = prop_set_wanted
+                    action_param['offer']['property_set_wanted'] = prop_set_wanted
 
                     player.agent._agent_memory['previous_action'] = "make_trade_offer"
                     return_action_list.append("make_trade_offer")
-                    return_param_list.append(param)
-                return (return_action_list, return_param_list)
-
+                    return_action_param_list.append(action_param)
+                return (return_action_list, return_action_param_list)
 
     # if we ran the gamut, and did not return, then it's time to skip turn or conclude actions
-    if "skip_turn" in allowable_moves:
-        logger.debug(player.player_name+ ': I am skipping turn')
-        player.agent._agent_memory['previous_action'] = "skip_turn"
-        return ("skip_turn", dict())
-    elif "concluded_actions" in allowable_moves:
-        logger.debug(player.player_name+ ': I am concluding actions')
-        # player.agent._agent_memory['previous_action'] = action_choices.concluded_actions
-        return ("concluded_actions", dict())
-    else:
-        logger.error("Exception")
-        raise Exception
-
+    return _wrap_up(player, allowable_moves)
 
 def make_post_roll_move(player, current_gameboard, allowable_moves, code):
     """
@@ -504,73 +470,54 @@ def make_post_roll_move(player, current_gameboard, allowable_moves, code):
     This ensures that the game doesnot go on for too long trying to execute unsuccessful actions.
     '''
 
-    for p in current_gameboard['players']:
-        if 'phase_game' not in p.agent._agent_memory:
-            p.agent._agent_memory['phase_game'] = 2
-            p.agent._agent_memory['count_unsuccessful_tries'] = 0
-
-    if player.agent._agent_memory['phase_game'] != 2:
-        player.agent._agent_memory['phase_game'] = 2
-        for p in current_gameboard['players']:
-            if p.status != 'lost':
-                p.agent._agent_memory['count_unsuccessful_tries'] = 0
-
-    if code == flag_config_dict['failure_code']:
-        player.agent._agent_memory['count_unsuccessful_tries'] += 1
-        logger.debug(player.player_name + ' has executed an unsuccessful postroll action, incrementing unsuccessful_tries ' +
-                                          'counter to ' + str(player.agent._agent_memory['count_unsuccessful_tries']))
-
+    _first_agent_prep(player, current_gameboard, allowable_moves, phase=2)
+    _failcode_handler(player, code)
     if player.agent._agent_memory['count_unsuccessful_tries'] >= UNSUCCESSFUL_LIMIT:
-        logger.debug(player.player_name + ' has reached postroll unsuccessful action limits.')
-        if "concluded_actions" in allowable_moves:
-            # player.agent._agent_memory['previous_action'] = action_choices.concluded_actions
-            logger.debug(player.player_name+ ': I am concluding actions since I have crossed unsuccessful limits.')
-            return ("concluded_actions", dict())
-        else:
-            logger.error("Exception")
-            raise Exception
+        logger.debug(player.player_name + ' has reached out of turn unsuccessful action limits.')
+        return _wrap_up(player, allowable_moves, message=' since I have crossed unsuccessful limits.')
+
+    action_param = dict()
+    action_param['player'] = player.player_name
+    action_param['current_gameboard'] = "current_gameboard"
 
     current_location = current_gameboard['location_sequence'][player.current_position]
     if "buy_property" in allowable_moves:
         if code == flag_config_dict['failure_code']:
-            logger.debug(player.player_name+': I did not succeed the last time in buying this property. Concluding actions...')
+            logger.debug(
+                player.player_name + ': I did not succeed the last time in buying this property. Concluding actions...')
             return ("concluded_actions", dict())
 
-        params = dict()
-        params['player'] = player.player_name
-        params['asset'] = current_location.name
-        params['current_gameboard'] = "current_gameboard"
+        action_params = dict()
+        action_params['player'] = player.player_name
+        action_params['asset'] = current_location.name
+        action_params['current_gameboard'] = "current_gameboard"
 
         if make_buy_property_decision(player, current_gameboard, current_location):
-            logger.debug(player.player_name+ ': I am attempting to buy property '+current_location.name)
+            logger.debug(player.player_name + ': I am attempting to buy property ' + current_location.name)
             player.agent._agent_memory['previous_action'] = "buy_property"
-            return ("buy_property", params)
+            return ("buy_property", action_params)
         else:
             # make_buy returned false, but is there still a chance?
-            if agent_helper_functions.will_property_complete_set(player,current_location,current_gameboard):
+            if agent_helper_functions.will_property_complete_set(player, current_location, current_gameboard):
                 # if we can raise enough money, then the 'next' time around we'll succeed in buying
-                to_mortgage = agent_helper_functions.identify_potential_mortgage(player,current_location.price,True)
+                to_mortgage = agent_helper_functions.identify_potential_mortgage(player, current_location.price, True)
                 if to_mortgage:
-                    params['asset'] = to_mortgage.name
-                    logger.debug(player.player_name+ ': I am attempting to mortgage property '+ params['asset'])
+                    action_params['asset'] = to_mortgage.name
+                    logger.debug(player.player_name + ': I am attempting to mortgage property ' + action_params['asset'])
                     player.agent._agent_memory['previous_action'] = "mortgage_property"
-                    return ("mortgage_property", params)
+                    return ("mortgage_property", action_params)
 
-                else: # last chance.
-                    to_sell = agent_helper_functions.identify_potential_sale(player, current_gameboard, current_location.price,True)
+                else:  # last chance.
+                    to_sell = agent_helper_functions.identify_potential_sale(player, current_gameboard,
+                                                                             current_location.price, True)
                     if to_sell:
-                        params['asset'] = to_sell.name
-                        logger.debug(player.player_name+ ': I am attempting to sell property '+ current_location.name+' to the bank')
+                        action_params['asset'] = to_sell.name
+                        logger.debug(
+                            player.player_name + ': I am attempting to sell property ' + current_location.name + ' to the bank')
                         player.agent._agent_memory['previous_action'] = "sell_property"
-                        return ("sell_property", params)
+                        return ("sell_property", action_params)
 
-    if "concluded_actions" in allowable_moves:
-        # player.agent._agent_memory['previous_action'] = action_choices.concluded_actions
-        return ("concluded_actions", dict())
-
-    else:
-        logger.error("Exception")
-        raise Exception
+    return _wrap_up(player, allowable_moves)
 
 
 def make_buy_property_decision(player, current_gameboard, asset):
@@ -914,6 +861,49 @@ def _build_decision_agent_methods_dict():
     ans['make_bid'] = make_bid
     ans['type'] = "decision_agent_methods"
     return ans
+
+def _first_agent_prep(player, current_gameboard, allowable_moves, phase):
+    for p in current_gameboard['players']:
+        if 'phase_game' not in p.agent._agent_memory:
+            p.agent._agent_memory['phase_game'] = phase
+            p.agent._agent_memory['count_unsuccessful_tries'] = 0
+    if player.agent._agent_memory['phase_game'] != phase:
+        player.agent._agent_memory['phase_game'] = phase
+        for p in current_gameboard['players']:
+            if p.status != 'lost':
+                p.agent._agent_memory['count_unsuccessful_tries'] = 0
+
+
+def _failcode_handler(player, code):
+    if isinstance(code, list):
+        code_flag = 0
+        for c in code:
+            if c == flag_config_dict['failure_code']:
+                code_flag = 1
+                break
+        if code_flag:
+            player.agent._agent_memory['count_unsuccessful_tries'] += 1
+            logger.debug(
+                player.player_name + ' has executed an unsuccessful out of turn action, incrementing unsuccessful_tries ' +
+                'counter to ' + str(player.agent._agent_memory['count_unsuccessful_tries']))
+    elif code == flag_config_dict['failure_code']:
+        player.agent._agent_memory['count_unsuccessful_tries'] += 1
+        logger.debug(
+            player.player_name + ' has executed an unsuccessful out of turn action, incrementing unsuccessful_tries ' +
+            'counter to ' + str(player.agent._agent_memory['count_unsuccessful_tries']))
+
+def _wrap_up(player, allowable_moves, message=''):
+    if "skip_turn" in allowable_moves:
+        logger.debug(player.player_name + ': I am skipping turn')
+        player.agent._agent_memory['previous_action'] = "skip_turn"
+        return ("skip_turn", dict())
+    elif "concluded_actions" in allowable_moves:
+        # player.agent._agent_memory['previous_action'] = action_choices.concluded_actions
+        logger.debug(player.player_name + ': I am concluding actions'+message)
+        return ("concluded_actions", dict())
+    else:
+        logger.error("Exception")
+        raise Exception
 
 
 decision_agent_methods = _build_decision_agent_methods_dict() # this is the main data structure that is needed by gameplay

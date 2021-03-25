@@ -189,6 +189,7 @@ class ServerAgent(Agent):
         super().__init__(**_build_decision_agent_methods_dict())
         print("Waiting for connection...")
         self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener.bind((address[0], address[1]))
         self.listener.listen()
         conn, addr = self.listener.accept()
@@ -248,3 +249,6 @@ class ServerAgent(Agent):
         return_from_client = self.conn.recv(1024)
         result = int(return_from_client.decode("utf-8"))
         return result
+
+    def __del__(self):
+        self.listener.close()
