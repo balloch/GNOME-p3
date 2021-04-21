@@ -335,11 +335,10 @@ def make_out_of_turn_move(player, current_gameboard, allowable_moves, code):
             if player.current_cash - (m.mortgage * (1 + current_gameboard['bank'].mortgage_percentage)) >= \
                     current_gameboard['go_increment'] and "free_mortgage" in allowable_moves:
                 # free mortgages till we can afford it. the second condition should not be necessary but just in case.
-                try:
-                    action_param['asset'] = m.name
-                except:
-                    import pdb
-                    pdb.set_trace()
+                action_param = dict()
+                action_param['player'] = player.player_name
+                action_param['asset'] = m.name
+                action_param['current_gameboard'] = "current_gameboard"
                 logger.debug(player.player_name + ': I am going to free mortgage on ' + m.name)
                 player.agent._agent_memory['previous_action'] = "free_mortgage"
                 return ("free_mortgage", action_param)
