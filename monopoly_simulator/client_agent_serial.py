@@ -276,6 +276,12 @@ class ClientAgent(Agent):
         self.conn.connect((address[0], address[1]))
 
         result = None
+
+        ### MY MODIFICATION
+        import os
+        counter = 0  
+        ### END MODIFICATION
+        
         while True:
             data_from_server = self.conn.recv(50000)
             data_from_server = data_from_server.decode("utf-8")
@@ -283,7 +289,16 @@ class ClientAgent(Agent):
             data_dict_from_server = json.loads(data_from_server)
             func_name = data_dict_from_server['function']
 
-            # When the tournament begins, we need to
+            ### MY MODIFICATION
+            
+            with open(os.path.join(os.environ['HOME'], 'sample_json_data', 'data_' + str(self.game_num) +
+                                                      '_' + str(counter) + '.json'), 'w') as outfile:
+                json.dump(data_dict_from_server, outfile, indent=4, sort_keys=True)
+
+            counter += 1
+            ### END MY MODIFICATION
+            
+            # When the tournament begins
             if func_name == "start_tournament":
                 self.logger.info('Tournament starts!')
                 result = 1
@@ -292,6 +307,7 @@ class ClientAgent(Agent):
             elif func_name == "startup": # args = (current_gameboard, indicator)
                 # Clear interface history and set the init for interface
                 self.game_num += 1
+                counter = 0
                 self.logger.info(str(self.game_num) + ' th game starts!')
 
             # When each game ends, we run the KG, but we don not shutdown the connection
@@ -350,6 +366,7 @@ class ClientAgent(Agent):
             if func_name == "end_tournament":
                 self.conn.close()
                 break
+
 
 
 def main():

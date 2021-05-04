@@ -1,3 +1,6 @@
+import os, sys
+upper_path = '/'.join(os.getcwd().split('/')[:-1])
+sys.path.append(upper_path)
 import numpy as np
 from monopoly_simulator import gameplay
 from monopoly_simulator import gameplay_socket
@@ -229,14 +232,116 @@ def play_tournament_with_novelty_2(tournament_log_folder=None, nov=None, meta_se
         print("Post-novelty winners: ", new_winners)
 
 
-def class_novelty_1(current_gameboard):
-    classCardNovelty = novelty_generator.TypeClassNovelty()
-    novel_cc = dict()
-    novel_cc["street_repairs"] = "alternate_contingency_function_1"
-    novel_chance = dict()
-    novel_chance["general_repairs"] = "alternate_contingency_function_1"
-    classCardNovelty.card_novelty(current_gameboard, novel_cc, novel_chance)
+def class_novelty_1(current_gameboard,novelty_type='price'):
+    """
+    Types: 'mortgage', 'bank', 'price', 'endpoints', 'sequence', 'endpoints',
+            'cardquantity', 'colors', 'dice', 'carddestination', 'cardmoney'
+    """
+    ## price
+    if novelty_type == 'price':
+        inanimateNovelty = novelty_generator.InanimateAttributeNovelty()
+        asset_lists = ["Mediterranean Avenue", "Baltic Avenue", "Reading Railroad", "Oriental Avenue", "Vermont Avenue",
+                       "Connecticut Avenue", "St. Charles Place", "Electric Company", "States Avenue",
+                       "Virginia Avenue", "Pennsylvania Railroad", "St. James Place", "Tennessee Avenue",
+                       "New York Avenue", "Kentucky Avenue", "Indiana Avenue", "Illinois Avenue", "B&O Railroad",
+                       "Atlantic Avenue", "Ventnor Avenue", "Water Works", "Marvin Gardens", "Pacific Avenue",
+                       "North Carolina Avenue", "Pennsylvania Avenue", "Short Line", "Park Place", "Boardwalk"]
+        num = 0
+        for asset in asset_lists:
+            num += 1
+            if num >= 0 and num < 10:
+                inanimateNovelty.price_novelty(current_gameboard['location_objects'][asset], 1499)
 
+    ## Mortgage
+    elif novelty_type == 'mortgage':
+        morNovelty = novelty_generator.InanimateAttributeNovelty()
+        mor_location = current_gameboard['location_objects']["Mediterranean Avenue"]
+        morNovelty.mortgage_novelty(mor_location, 40)
+
+    ## Bank
+    elif novelty_type == 'bank':
+        contingentattributenovelty = novelty_generator.ContingentAttributeNovelty()
+        contingentattributenovelty.change_property_sell_percentage(current_gameboard,
+                                                                   0.4)
+
+    ## Reorder gameboard
+    elif novelty_type == 'endpoints':
+        granularityNovelty = novelty_generator.GranularityRepresentationNovelty()
+        granularityNovelty.granularity_novelty(current_gameboard,
+                                               current_gameboard['location_objects']['Baltic Avenue'],
+                                               6)
+        granularityNovelty.granularity_novelty(current_gameboard,
+                                               current_gameboard['location_objects']['States Avenue'],
+                                               20)
+        granularityNovelty.granularity_novelty(current_gameboard,
+                                               current_gameboard['location_objects']['Tennessee Avenue'],
+                                               27)
+        granularityNovelty.granularity_novelty(current_gameboard,
+                                               current_gameboard['location_objects']['Park Place'],
+                                               52)
+
+    ## Reorder the sequence
+    elif novelty_type == 'sequence':
+        spaceordernovelty = novelty_generator.SpatialRepresentationNovelty()
+        new_location_sequence = ["Go", "Community Chest", "Mediterranean Avenue", "Baltic Avenue", "Income Tax", "Reading Railroad",
+                                 "Oriental Avenue", "Chance", "Vermont Avenue", "Connecticut Avenue", "In Jail/Just Visiting",
+                                 "St. Charles Place", "Electric Company", "States Avenue", "Virginia Avenue", "Pennsylvania Railroad",
+                                 "St. James Place", "Community Chest", "Tennessee Avenue", "New York Avenue", "Free Parking",
+                                 "Kentucky Avenue", "Chance", "Indiana Avenue", "Illinois Avenue", "B&O Railroad", "Atlantic Avenue",
+                                 "Ventnor Avenue", "Water Works", "Marvin Gardens", "Go to Jail", "Pacific Avenue",
+                                 "North Carolina Avenue", "Community Chest", "Pennsylvania Avenue", "Short Line", "Chance",
+                                 "Park Place", "Luxury Tax", "Boardwalk"]
+        spaceordernovelty.global_reordering(current_gameboard,
+                                            new_location_sequence)
+        print(current_gameboard['location_sequence'])
+
+    ## Reorder the colors
+    elif novelty_type == 'colors':
+        spatialNovelty = novelty_generator.SpatialRepresentationNovelty()
+        spatialNovelty.color_reordering(current_gameboard, ['Boardwalk', 'Park Place'], 'Blue')
+
+    ## Dice
+    elif novelty_type == 'dice':
+        numberDieNovelty = novelty_generator.NumberClassNovelty()
+        numberDieNovelty.die_novelty(current_gameboard, 2, die_state_vector=[[1,2,3,4,5,6],[1,2,3,4,5,6]])
+        classDieNovelty = novelty_generator.TypeClassNovelty()
+        # die_state_distribution_vector = ['uniform','uniform','biased','biased']
+        die_state_distribution_vector = ['biased', 'uniform']
+        die_type_vector = ['odd_only','even_only']
+        classDieNovelty.die_novelty(current_gameboard, die_state_distribution_vector, die_type_vector)
+
+    ## Card Quantity
+    elif novelty_type == 'cardquantity':
+        numberCardNovelty = novelty_generator.NumberClassNovelty()
+        community_chest_cards_num = {"go_to_jail":1}
+        chance_cards_num = {"go_to_jail":1}
+        numberCardNovelty.card_novelty(current_gameboard, community_chest_cards_num, chance_cards_num)
+
+    ## Card - destination
+    elif novelty_type == 'carddestination':
+        desCardNovelty = novelty_generator.InanimateAttributeNovelty()
+        community_chest_card_destinations, chance_card_destinations = dict(), dict()
+        community_chest_card_destinations['advance_to_go'] = location.ActionLocation("action", 'Chance', 36, 37, "None", "pick_card_from_chance")
+        desCardNovelty.card_destination_novelty(current_gameboard, community_chest_card_destinations, chance_card_destinations)
+
+    ## Card - Amount
+    elif novelty_type == 'cardmoney':
+        cardamountNovelty = novelty_generator.InanimateAttributeNovelty()
+        community_chest_card_amounts = dict()
+        key = "sale_of_stock"
+        community_chest_card_amounts[key] = 60
+        cardamountNovelty.card_amount_novelty(current_gameboard, community_chest_card_amounts=community_chest_card_amounts)
+
+    ## New Cards
+    else:
+        classCardNovelty = novelty_generator.TypeClassNovelty()
+        novel_cc = dict()
+        novel_cc["street_repairs"] = "alternate_contingency_function_1"
+        novel_chance = dict()
+        novel_chance["general_repairs"] = "alternate_contingency_function_1"
+        classCardNovelty.card_novelty(current_gameboard,
+                                      novel_cc,
+                                      novel_chance)
 
 #All the tournaments get logged in seperate folders inside ../tournament_logs folder
 try:
